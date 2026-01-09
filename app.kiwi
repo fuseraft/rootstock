@@ -1,0 +1,34 @@
+#!/usr/bin/env kiwi
+
+include "lib/rootstock"
+
+fn main()
+  Rootstock.new()
+    .route("/", index.to_lambda())
+    .route("/hello", hello.to_lambda())
+    .serve("127.0.0.1", 8080)
+end
+
+# GET /
+fn index(req)
+  html = string::dedent("
+    <html>
+      <body>
+        <table>
+          <tbody>
+            <tr><td>method</td><td>${req.method}</td></tr>
+            <tr><td>path</td><td>${req.path}</td></tr>
+            <tr><td>time</td><td>${time::now()}</td></tr>
+          </tbody>
+        </table>
+      </body>
+    </html>")
+  http::html(200, html)
+end
+
+# GET /hello
+fn hello(req)
+  http::html(200, "<html><body><h1>Hello, World!</h1></body></html>")
+end
+
+main()

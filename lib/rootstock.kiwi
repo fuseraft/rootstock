@@ -1,0 +1,69 @@
+/#
+                                  ░██                  ░██                          ░██       
+                                  ░██                  ░██                          ░██       
+░██░████  ░███████   ░███████  ░████████  ░███████  ░████████  ░███████   ░███████  ░██    ░██
+░███     ░██    ░██ ░██    ░██    ░██    ░██           ░██    ░██    ░██ ░██    ░██ ░██   ░██ 
+░██      ░██    ░██ ░██    ░██    ░██     ░███████     ░██    ░██    ░██ ░██        ░███████  
+░██      ░██    ░██ ░██    ░██    ░██           ░██    ░██    ░██    ░██ ░██    ░██ ░██   ░██ 
+░██       ░███████   ░███████      ░████  ░███████      ░████  ░███████   ░███████  ░██    ░██
+                                                                                              
+
+a simple web framework written in kiwi
+#/
+
+struct Rootstock
+  fn new()
+    @running = false
+    @routes = {}
+  end
+
+  fn route(path: string, handler: lambda)
+    @routes.set(path, handler)
+    @
+  end
+
+  fn serve(host: string, port: integer)
+    return when @running
+    @running = true
+    
+    server_sock = socket::tcpserver(host, port)
+    accept_loop = with (server_sock: integer, req_handler: lambda, routes: hashmap) do
+      while true do
+        pending_accept = socket::accept(server_sock)
+        client_sock = task::await(pending_accept)  
+        handler_task = task::spawn(req_handler, [client_sock, routes])
+      end
+    end
+
+    req_handler = with (client: integer, routes: hashmap) do
+      recv_task = socket::recv(client, 8192)
+      data = task::await(recv_task)
+
+      if data.empty()
+        throw "Empty request."
+      end
+
+      req = http::parse(data)
+
+      if req == null
+        throw "Http parser error."
+      end
+
+      resp = [].to_bytes()
+
+      if not routes.has_key(req.path)
+        resp = http::html(404, "<html><body><h1>404 - Not found</h1></body></html>")
+      else
+        resp = routes.get(req.path).call([req])
+      end
+
+      send_task = socket::send(client, resp)
+      send_res = task::await(send_task)
+      
+      socket::close(client)
+    end
+
+    routes = @routes
+    task::spawn(accept_loop, [server_sock, req_handler, routes])
+  end
+end
